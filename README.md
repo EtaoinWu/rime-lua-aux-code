@@ -59,34 +59,88 @@ RIME 输入法辅助码与音形分离插件 -> <a href="https://www.bilibili.co
     ```yaml
       speller/alphabet: zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA; 
     ```
+
     > :warning: 符号 `;` 为英文半角，而非中文全角
 
     如果想修改触发键为别的按键，可以用下面的方法来自定义：
+
     ```yaml
-      key_binder/+:
-        aux_code_trigger: "#"
+      aux_code:
+        trigger_key: "#"
     ```
 
-    > :warning: 请确保所选字符 `#` 已包含在上述 `speller/alphabet` 的值中    
+    > :warning: 请确保所选字符 `#` 已包含在上述 `speller/alphabet` 的值中
     > 如果是自定义触发键为 `.` 或 `,` ，这两个按键在大部分配置中默认为翻页键，可能还需要禁止该翻页键：
 
     ```yaml
-      # 接 key_binder/+:
-        bindings:
+      # 接 patch:
+        key_binder/bindings/+:
           # 禁用前翻页键 "."
           - { when: has_menu, accept: period, send: period } 
           # 禁用后翻页键 ","
           - { when: has_menu, accept: comma, send: comma } 
     ```
 
-    如果对自己的辅助码熟悉程度非常有信心不需要任何辅助码提示，可以使用下面的配置进行关闭：
+    如果想要改变辅助码提示的展示时机，可以使用下面的 `.schema.yaml` 配置：
 
     ```yaml
-      # 接 key_binder/+:
-        show_aux_notice: false  # 设置是否显示辅助码字母提示
+      aux_code:
+        show_auxcode_hint: always  # 默认：对单字，总是显示辅助码字母提示
+
+        # 或者
+        show_auxcode_hint: on_trigger  # 仅在使用 trigger_key （默认为 ";"）时显示辅助码字母提示
+
+        # 或者，如果对自己的辅助码熟悉程度非常有信心，不需要任何辅助码提示：
+        show_auxcode_hint: never  # 从不显示辅助码字母提示
+        # 警告: 本插件使用的自然码方案为修改版，可能和你之前一直使用的有细微区别
+        #       建议开启辅助码提示一段时间后，确定输入没问题了再考虑关闭该项
+
+        # 或者
+        show_auxcode_hint: option  # 通过选项切换显示辅助码字母提示，见下
     ```
 
-    > :warning: 本插件使用的自然码方案为修改版，可能和你之前一直使用的有细微区别，建议开启辅助码提示一段时间后，确定输入没问题了再考虑关闭该项
+    如若需要在编辑过程中动态切换是否显示辅助码提示，可以使用如下的 `.schema.yaml` 配置：
+
+    ```yaml
+      switches:
+        # ... 其他 switch 配置
+        - options: [aux_code_hint_always, aux_code_hint_on_trigger, aux_code_hint_never]
+          reset: 0
+          states: ["辅码显示", "辅码按需", "辅码隐藏"]
+          abbrev: ["显", "需", "隐"]
+      aux_code:
+        show_auxcode_hint: option
+    ```
+
+    插件支持两种方式过滤候选词，一种是默认的“仅显示匹配”，另一种是“匹配优先”，即不符合辅助码的候选词会添加到候选词列表的最后。配置如下：
+
+    ```yaml
+      aux_code:
+        nonmatch_policy: filter # 默认
+        # 或者
+        nonmatch_policy: prioritize # 优先显示匹配候选词，不匹配的候选词放在最后
+        # 或者
+        nonmatch_policy: option # 通过选项切换过滤策略，见下
+    ```
+
+    其中 `nonmatch_policy: option` 配置需要如下搭配：
+
+    ```yaml
+      switches:
+        # ... 其他 switch 配置
+        - name: aux_code_nonmatch_policy
+          reset: 0
+          states: ["筛选", "优先"]
+      aux_code:
+        nonmatch_policy: option
+    ```
+
+    此外，如果你的输入方案中有特殊的输入模式（例如使用 `U` 开头输入 Unicode、使用 `VV` 开头使用反查等），你可以在遇到这些开头的时候关闭辅助码提示，以免干扰输入。可以使用下面的配置：
+
+    ```yaml
+      aux_code:
+        ignore_regex: "^(V|uU|U|R|N)"
+    ```
 
 3. 重新配置 Rime 输入法，如果一切顺利，应该就可以使用了。
 

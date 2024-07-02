@@ -3,6 +3,14 @@ local AuxFilter = {}
 -- local log = require 'log'
 -- log.outfile = "aux_code.log"
 
+local function punc_to_regex(s)
+    if s then
+        return s:gsub('([%.%+%-%*%?%[%]%^%$%(%)%%])', '%%%1')
+    else
+        return ''
+    end
+end
+
 function AuxFilter.init(env)
     -- log.info("** AuxCode filter", env.name_space)
 
@@ -13,6 +21,7 @@ function AuxFilter.init(env)
 
     -- 設定預設觸發鍵為分號，並從配置中讀取自訂的觸發鍵
     env.trigger_key = config:get_string("aux_code/trigger_key") or ";"
+    env.trigger_pattern = punc_to_regex(env.trigger_key)
 
     -- 设定是否显示辅助码
     -- always: 总是显示 (默认)
@@ -40,13 +49,13 @@ function AuxFilter.init(env)
     ----------------------------
     env.notifier = engine.context.select_notifier:connect(function(ctx)
         -- 含有輔助碼分隔符才處理
-        if not string.find(ctx.input, env.trigger_key) then
+        if not string.find(ctx.input, env.trigger_pattern) then
             return
         end
 
         local preedit = ctx:get_preedit()
-        local removeAuxInput = ctx.input:match("([^,]+)" .. env.trigger_key)
-        local reeditTextFront = preedit.text:match("([^,]+)" .. env.trigger_key)
+        local removeAuxInput = ctx.input:match("([^" .. env.trigger_pattern .. "]+)" .. env.trigger_pattern)
+        local reeditTextFront = preedit.text:match("([^" .. env.trigger_pattern .. "]+)" .. env.trigger_pattern)
 
         -- ctx.text 隨著選字的進行，oaoaoa； 有如下的輸出：
         -- ---- 有輔助碼 ----
@@ -263,13 +272,13 @@ function AuxFilter.func(input, env)
     local has_trigger_key = false
 
     -- 判断字符串中是否包含輔助碼分隔符
-    if string.find(inputCode, env.trigger_key) then
+    if string.find(inputCode, env.trigger_pattern) then
         has_trigger_key = true
         -- 字符串中包含輔助碼分隔符
-        local trigger_pattern = env.trigger_key:gsub("%W", "%%%1") -- 處理特殊字符
-        local localSplit = inputCode:match(trigger_pattern .. "([^,]+)")
-        if localSplit then
-            auxStr = string.sub(localSplit, 1, 2)
+        local code_part, aux_part = inputCode:match("^([^" .. env.trigger_pattern .. "]+)" .. env.trigger_pattern .. "(.*)$")
+        if aux_part then
+            aux_part = aux_part:gsub(env.trigger_pattern, '')
+            auxStr = string.sub(aux_part, 1, 2)
             -- log.info('re.match ' .. local_split)
         end
     end

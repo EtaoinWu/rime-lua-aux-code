@@ -16,7 +16,7 @@ RIME 输入法辅助码与音形分离插件 -> <a href="https://www.bilibili.co
   ![](https://cdn.jsdelivr.net/gh/HowcanoeWang/rime-lua-aux-code/static/aux_split.png)
 * 在候选单中直接提示单字的辅助码 （可配置关闭）  
   ![](https://cdn.jsdelivr.net/gh/HowcanoeWang/rime-lua-aux-code/static/aux_notice.png)
-* 支持词语级筛选 （非首字筛选）  
+* 支持词语级筛选、首字筛选（可选）
   ![](https://cdn.jsdelivr.net/gh/HowcanoeWang/rime-lua-aux-code/static/aux_word.png)  
   如「白日依山尽」仍然可以匹配到「i」 （尽的辅码）
 * 为优化性能，**未**匹配辅助码的候选**不会**出现在列表中
@@ -133,6 +133,24 @@ RIME 输入法辅助码与音形分离插件 -> <a href="https://www.bilibili.co
           states: ["筛选", "优先"]
       aux_code:
         nonmatch_policy: option
+    ```
+
+    插件配置 `aux_code/filter_mode` 用于控制是否开启词语级筛选，配置如下：
+
+    ```yaml
+      aux_code:
+        filter_mode: phrase # 全词，默认
+        # 或者
+        filter_mode: single # 首字筛选
+        # 或者
+        filter_mode: option # 通过选项 aux_code_single_char 切换过滤策略
+      # 如果使用 option 模式，需要如下配置
+      switches:
+        # ... 其他 switch 配置
+        - name: aux_code_single_char
+          reset: 0
+          states: ["全词", "首字"]
+          abbrev: [词, 单]
     ```
 
     此外，如果你的输入方案中有特殊的输入模式（例如使用 `U` 开头输入 Unicode、使用 `VV` 开头使用反查等），你可以在遇到这些开头的时候关闭辅助码提示，以免干扰输入。可以使用下面的配置：

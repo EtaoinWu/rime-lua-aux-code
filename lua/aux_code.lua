@@ -6,7 +6,7 @@ local AuxFilter = {}
 function AuxFilter.init(env)
     -- log.info("** AuxCode filter", env.name_space)
 
-    AuxFilter.aux_code = AuxFilter.readAuxTxt(env.name_space)
+    AuxFilter.aux_code = AuxFilter.aux_code or AuxFilter.readAuxTxt(env.name_space)
 
     local engine = env.engine
     local config = engine.schema.config
@@ -28,6 +28,12 @@ function AuxFilter.init(env)
     -- prioritize: 非匹配候选项放在最后
     -- option: 根据 switch 中的 aux_code_nonmatch_policy 选项决定
     env.nonmatch_policy = config:get_string("aux_code/nonmatch_policy") or "filter"
+
+    -- 设定辅助码过滤模式
+    -- single: 单字
+    -- phrase: 全词
+    -- option: 根据 switch 中的 aux_code_single_char 选项决定
+    env.filter_mode = config:get_string("aux_code/filter_mode") or "phrase"
 
     ----------------------------
     -- 持續選詞上屏，保持輔助碼分隔符存在 --
@@ -144,7 +150,7 @@ end
 --   第一个辅码键的不重复列表为：fullAuxCodes[1]= urpao 
 --   第二个辅码键的不重复列表为：fullAuxCodes[2]= urhafi
 -- -----------------------------------------------
-function AuxFilter.fullAux(env, word)
+function AuxFilter.fullAux(env, word, single_char_mode)
     local fullAuxCodes = {}
     -- log.info('候选词：', word)
     for _, codePoint in utf8.codes(word) do
@@ -157,6 +163,9 @@ function AuxFilter.fullAux(env, word)
                     fullAuxCodes[i][code:sub(i, i)] = true
                 end
             end
+        end
+        if single_char_mode then
+            break
         end
     end
 
@@ -189,8 +198,8 @@ function AuxFilter.match(fullAux, auxStr)
     return firstKeyMatched and secondKeyMatched
 end
 
-function string.starts(String,Start)
-    return string.sub(String,1,string.len(Start))==Start
+function string.starts(haystack, needle)
+    return string.sub(haystack, 1, string.len(needle)) == needle
 end
 
 function passthrough(input, env)
@@ -203,7 +212,7 @@ function AuxFilter.get_show_auxcode_hint(env, ctx, has_trigger_key)
     local show_auxcode_hint = env.show_auxcode_hint
     if show_auxcode_hint == "option" then
         show_auxcode_hint = "always"
-        local auxcode_hint_types = { "always", "on_trigger", "never" }
+        local auxcode_hint_types = {"always", "on_trigger", "never"}
         for _, hint_type in ipairs(auxcode_hint_types) do
             if ctx:get_option("aux_code_hint_" .. hint_type) then
                 show_auxcode_hint = hint_type
@@ -225,8 +234,16 @@ function AuxFilter.get_show_nonmatch(env, ctx)
     if env.nonmatch_policy == "option" then
         return ctx:get_option("aux_code_nonmatch_policy")
     end
-    
+
     return env.nonmatch_policy == "prioritize"
+end
+
+function AuxFilter.get_single_char_mode(env, ctx)
+    if env.filter_mode == "option" then
+        return ctx:get_option("aux_code_single_char")
+    end
+
+    return env.filter_mode == "single"
 end
 
 ------------------
@@ -259,13 +276,14 @@ function AuxFilter.func(input, env)
 
     local show_auxcode_hint = AuxFilter.get_show_auxcode_hint(env, context, has_trigger_key)
     local show_nonmatch = AuxFilter.get_show_nonmatch(env, context)
+    local single_char_mode = AuxFilter.get_single_char_mode(env, context)
 
     local insertLater = {}
 
     -- 遍歷每一個待選項
     for cand in input:iter() do
         local auxCodes = AuxFilter.aux_code[cand.text] -- 僅單字非 nil
-        local fullAuxCodes = AuxFilter.fullAux(env, cand.text)
+        local fullAuxCodes = AuxFilter.fullAux(env, cand.text, single_char_mode)
 
         -- 查看 auxCodes
         -- log.info(cand.text, #auxCodes)
